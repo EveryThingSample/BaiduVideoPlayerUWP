@@ -61,7 +61,6 @@ namespace NetdiskOpenAPI
                 request.Headers[HttpRequestHeader.AcceptEncoding] = "gzip, deflate";
                 request.Headers[HttpRequestHeader.Accept] = "*/*";
                 request.Headers[HttpRequestHeader.UserAgent] = UserAgent;
-                request.ContentType = "application/x-www-form-urlencoded";
                 //响应
                 using (response = await request.GetResponseAsync() as System.Net.HttpWebResponse)
                 {
