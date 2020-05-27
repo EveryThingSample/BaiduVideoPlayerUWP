@@ -137,9 +137,6 @@ namespace NetdiskOpenAPI
                         res = text;
                         return (T)res;
                     }
-                    var serializer = new System.Runtime.Serialization.Json.DataContractJsonSerializer(typeof(T));
-                    var ms = new System.IO.MemoryStream(Encoding.UTF8.GetBytes(text));
-                    var data = (T)serializer.ReadObject(ms);
                     return ParseFromString<T>(text);
                 }
             }
