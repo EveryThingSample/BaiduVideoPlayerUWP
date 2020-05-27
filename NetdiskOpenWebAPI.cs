@@ -67,7 +67,7 @@ namespace NetdiskOpenAPI
                 {
                     WriteableBitmap bitmap = new WriteableBitmap(1, 1);
                     string text = string.Empty;
-                    byte[] bys = new byte[1];
+                    byte[] bys = new byte[0];
                     MemoryStream mStream = new MemoryStream();
                     using (System.IO.Stream responseStm = response.GetResponseStream())
                     {
@@ -178,24 +178,22 @@ namespace NetdiskOpenAPI
                 request.Headers[HttpRequestHeader.Accept] = "*/*";
                 request.Headers[HttpRequestHeader.UserAgent] = UserAgent;
                 request.ContentType = "application/x-www-form-urlencoded";
-
                 {
+                    //发送数据
                     string postData = string.Format(post);
                     ASCIIEncoding encoding = new ASCIIEncoding();
                     byte[] bytepostData = encoding.GetBytes(postData);
                     request.Headers[HttpRequestHeader.ContentLength] = bytepostData.Length.ToString();
-                    //发送数据 using结束代码段释放
                     System.IO.Stream requestStm = await request.GetRequestStreamAsync();
                     await requestStm.WriteAsync(bytepostData, 0, bytepostData.Length);
                     requestStm.Dispose();
                 }
                 //响应
-
                 using (response = await request.GetResponseAsync() as System.Net.HttpWebResponse)
                 {
                     WriteableBitmap bitmap = new WriteableBitmap(1, 1);
                     string text = string.Empty;
-                    byte[] bys = new byte[1];
+                    byte[] bys = new byte[0];
                     MemoryStream mStream = new MemoryStream();
                     using (System.IO.Stream responseStm = response.GetResponseStream())
                     {
@@ -536,7 +534,7 @@ namespace NetdiskOpenAPI
             /// <summary>
             /// 
             /// </summary>
-            public List<ListItem> list { get; set; }
+            public IList<ListItem> list { get; set; }
         }
         /// <summary>
         /// 
@@ -650,7 +648,7 @@ namespace NetdiskOpenAPI
             /// <summary>
             /// 
             /// </summary>
-            public List<ListItem> list { get; set; }
+            public IList<ListItem> list { get; set; }
             /// <summary>
             /// 
             /// </summary>
@@ -669,7 +667,7 @@ namespace NetdiskOpenAPI
         /// <summary>
         /// 文件操作
         /// </summary>
-        public class FileManager:NetdiskOpen
+        public class FileManager : NetdiskOpen
         {
             /// <summary>
             /// 
@@ -763,7 +761,7 @@ namespace NetdiskOpenAPI
                 /// <param name="opera">copy、move、rename、delete</param>
                 /// <param name="filelist">文件列表</param>
                 /// <param name="async">0 同步、1 自适应、2 异步</param>
-                public FileManagerRequest(Opera opera, IList<FilelistItem> filelist,int async)
+                public FileManagerRequest(Opera opera, IList<FilelistItem> filelist, int async)
                 {
                     this.opera = opera;
                     this.filelist = filelist;
@@ -772,7 +770,7 @@ namespace NetdiskOpenAPI
                 /// <summary>
                 /// copy、move、rename、delete
                 /// </summary>
-                public Opera opera { get;  }
+                public Opera opera { get; }
                 /// <summary>
                 /// 文件列表
                 /// </summary>
@@ -810,10 +808,10 @@ namespace NetdiskOpenAPI
                 /// </summary>
                 public int error_code { get; set; }
             }
-          /// <summary>
-          /// 
-          /// </summary>
-            public List<TaskListItem> list { get; set; }
+            /// <summary>
+            /// 
+            /// </summary>
+            public IList<TaskListItem> list { get; set; }
             /// <summary>
             /// success,fail
             /// </summary>
@@ -826,11 +824,11 @@ namespace NetdiskOpenAPI
             /// max 100
             /// </summary>
             public int progress { get; set; }
-           /// <summary>
-           /// 
-           /// </summary>
-           /// <param name="pathList"></param>
-           /// <returns></returns>
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="pathList"></param>
+            /// <returns></returns>
             public static async Task<FileManager> DeleteFileAsync(IList<string> pathList)
             {
                 var str = Newtonsoft.Json.JsonConvert.SerializeObject(pathList);
@@ -996,7 +994,7 @@ namespace NetdiskOpenAPI
         /// <summary>
         /// 预上传
         /// </summary>
-        public class FilePreCreate:NetdiskOpen
+        public class FilePreCreate : NetdiskOpen
         {
             /// <summary>
             /// 
@@ -1120,7 +1118,7 @@ namespace NetdiskOpenAPI
             }
         }
     }
-    
+
     /// <summary>
     /// 
     /// </summary>
