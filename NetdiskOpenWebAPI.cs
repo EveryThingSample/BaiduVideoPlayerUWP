@@ -21,7 +21,7 @@ namespace NetdiskOpenAPI
         /// 
         /// </summary>
         public static string access_token = null;
-        /// <summary>
+        /// <summary> 
         /// 
         /// </summary>
         public string request_id { get; set; }
