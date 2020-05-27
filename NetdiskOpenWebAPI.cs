@@ -21,7 +21,7 @@ namespace NetdiskOpenAPI
         /// 
         /// </summary>
         public static string access_token = null;
-        /// <summary> 
+        /// <summary>
         /// 
         /// </summary>
         public string request_id { get; set; }
@@ -141,13 +141,7 @@ namespace NetdiskOpenAPI
             }
             catch (Exception ex)
             {
-                if (ex.Message.Contains("An error occurred while sending the request") || ex.Message.Contains("remote") || ex.ToString().Contains("MoveNext()"))
-                {
-                    //await new MessageDialog("❗网络错误，请检查网络！").ShowAsync();
-                }
-                else if (!ex.ToString().Contains("StreamReader.ReadToEnd"))
-                {
-                }
+                //await new MessageDialog("❗网络错误，请检查网络！").ShowAsync();
             }
             return (T)res;
         }
