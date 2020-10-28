@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -122,7 +122,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
             return System.Runtime.InteropServices.WindowsRuntime.AsyncInfo.Run(_ =>
                    Task.Run<AuthToken>(async () =>
                    {
-                       if (IsExpir(atoken))
+                       if (IsExpired(atoken))
                        {
                            var res = await NetdiskOpenAPI.OAuthToken.GetOAuthTokenFromRefreshAsync(atoken.RefreshToken, oAuth.apiKey, oAuth.secretKey);
                            if (res?.access_token == null)
@@ -147,7 +147,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
         /// <returns></returns>
         public BaiduNetdiskOpen GetBaiduNetdiskOpen(AuthToken atoken)
         {
-            if (IsExpir(atoken))
+            if (IsExpired(atoken))
                 throw new Exception("Token is expired");
             return new BaiduNetdiskOpen(new OAuth() { AccessToken = atoken.AccessToken, apiKey = oAuth.apiKey, secretKey = oAuth.secretKey });
         }
@@ -156,7 +156,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
         /// </summary>
         /// <param name="token"></param>
         /// <returns></returns>
-        public bool IsExpir(AuthToken token)
+        public bool IsExpired(AuthToken token)
         {
             return token.ExpiresTimestamp <= EveryThingSampleTools.UWP.Tools.TimeTool.NowTimeStamp;
         }
