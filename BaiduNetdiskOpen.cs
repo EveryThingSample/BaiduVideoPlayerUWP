@@ -508,8 +508,12 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
         /// <summary>
         /// 
         /// </summary>
+        /// <param name="name"></param>
+        /// <param name="path"></param>
+        /// <param name="fs_id"></param>
+        /// <param name="modifiedDate"></param>
         /// <returns></returns>
-        public NetdiskFolder GetNetdiskFolder(string name, string path, ulong fs_id, long modifiedDate)
+        public NetdiskFolder CreateNetdiskFolder(string name, string path, ulong fs_id, long modifiedDate)
         {
             return new NetdiskFolder(Auth)
             {
@@ -517,6 +521,32 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                 DateModified = EveryThingSampleTools.UWP.Tools.TimeTool.ConvertToDateTime(modifiedDate),
                 Path = path,
                 Id = fs_id,
+            };
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="path"></param>
+        /// <param name="fs_id"></param>
+        /// <param name="modifiedDate"></param>
+        /// <param name="size"></param>
+        /// <param name="category"></param>
+        /// <param name="icon"></param>
+        /// <param name="md5"></param>
+        /// <returns></returns>
+        public NetdiskFile CreateNetdiskFile(string name, string path, ulong fs_id, long modifiedDate, ulong size, Category category, string icon, string md5)
+        {
+            return new NetdiskFile(Auth)
+            {
+                Name = name,
+                DateModified = EveryThingSampleTools.UWP.Tools.TimeTool.ConvertToDateTime(modifiedDate),
+                Path = path,
+                Id = fs_id,
+                Size = size,
+                Category = category,
+                thumbs = new NetdiskBasic.Thumbs() { url4 = icon},
+                Md5 = md5
             };
         }
         /// <summary>
