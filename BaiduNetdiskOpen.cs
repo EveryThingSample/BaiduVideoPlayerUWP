@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -230,7 +230,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                    {
                        return new UserInfo(Auth)
                        {
-                           Name = res.netdisk_name ?? res.baidu_name,
+                           Name = string.IsNullOrEmpty(res.netdisk_name) ? res.baidu_name: res.netdisk_name,
                            Uk = res.uk,
                            VipType = res.vip_type,
                            AvatarUrl = res.avatar_url,
@@ -480,25 +480,22 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                              {
                                  case 0:
                                      {
-                                         IReadOnlyList<INetdiskItem> resLists = null;
-                                         var list = new INetdiskItem[res.list.Count];
-
-                                         for (int i = 0; i < res.list.Count; i++)
+                                         var list = new List<INetdiskItem>();
+                                         foreach(var it in res.list)
                                          {
-                                             var it = res.list[i];
                                              if (it.isdir > 0)
                                              {
-                                                 list[i] = new NetdiskFolder(this.Auth, null)
+                                                 list.Add(new NetdiskFolder(this.Auth, null)
                                                  {
                                                      Name = it.server_filename,
                                                      path = it.path,
                                                      Id = it.fs_id,
                                                      DateModified = new DateTimeOffset(EveryThingSampleTools.UWP.Tools.TimeTool.ConvertToDateTime(it.server_mtime)),
-                                                 };
+                                                 });
                                              }
                                              else
                                              {
-                                                 list[i] = new NetdiskFile(this.Auth, null)
+                                                 list.Add(new NetdiskFile(this.Auth, null)
                                                  {
                                                      Name = it.server_filename,
                                                      path = it.path,
@@ -508,11 +505,11 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                                                      thumbs = it.thumbs,
                                                      Category = NetdiskFolder.GetCategory(it.category, it.server_filename),
                                                      DateModified = new DateTimeOffset(EveryThingSampleTools.UWP.Tools.TimeTool.ConvertToDateTime(it.server_mtime)),
-                                                 };
+                                                 });
                                              }
                                          }
-                                         resLists = list;
-                                         return resLists;
+                                         
+                                         return list.AsReadOnly();
                                      }
                                  case -6:
                                      throw new InvalidAuthException(-6, res.error_msg);
@@ -663,7 +660,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
         /// <summary>
         /// get the file Type
         /// </summary>
-        public string FileType { get { if (Name != null && Name.Contains('.') && !Name.EndsWith('.')) return Name.Substring(Name.LastIndexOf('.') + 1); return null; } }
+        public string FileType { get { if (Name != null && Name.Contains('.') && !Name.EndsWith('.')) return Name.Substring(Name.LastIndexOf('.')); return null; } }
         /// <summary>
         /// get the modified date
         /// </summary>
@@ -919,7 +916,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                           throw new Exception("Size can't more than 5MB");
                       var uri = await GetDownloadUriAsync();
                       
-                      return NetdiskOpen.Request<byte[]>(uri.AbsoluteUri);
+                      return NetdiskOpen.Request<byte[]>(await NetdiskOpen.GetLocationUriAsync(uri.AbsoluteUri));
                   }
                   ));
         }
@@ -1243,18 +1240,10 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                     {
                         await this.RefreshAsync();
                     }
-
-                    var list = new INetdiskItem[files.Count + folders.Count];
-                    for (int i = 0; i < folders.Count; i++)
-                    {
-                        list[i] = folders[i];
-                    }
-
-                    for (int i = 0; i < files.Count; i++)
-                    {
-                        list[i + folders.Count] = files[i];
-                    }
-                    return Array.AsReadOnly<INetdiskItem>(list);// list.AsReadOnly();
+                    var res = new List<INetdiskItem>();
+                    res.AddRange(folders);
+                    res.AddRange(files);
+                    return res.AsReadOnly();
 
                 }));
         }
@@ -1557,9 +1546,9 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                 return Category.Movie;
 
             }
-            else if (IsPicFile(name) || category == 3)
+            else if (category == 3|| IsPicFile(name))
             {
-                return Category.Music;
+                return Category.Pic;
             }
             else if (IsTxtFile(name))
             {
@@ -1828,6 +1817,9 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                 }));
         }
     }
+    /// <summary>
+    /// 
+    /// </summary>
     public class XpanShareFolder:INetdiskFolder, INetdiskItem, IXpanShareItem
     {
         internal XpanShareClass xpanShareClass { get; }
@@ -1985,7 +1977,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
             return AsyncInfo.Run(_ =>
                 Task.Run(async () =>
                 {
-                    var it = await this.xpanShareClass.GetListAsync(fs_id);
+                    var it = await this.xpanShareClass.GetListAsync(fs_id, Path);
                     if (it != null)
                     {
                         switch(it.errno)
@@ -2015,6 +2007,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                                             {
                                                 Name = _it.server_filename,
                                                 fs_id = _it.fs_id,
+                                                Size = _it.size,
                                                 Path = _it.path,
                                                 Md5 = _it.md5,
                                                 thumbs = _it.thumbs,
@@ -2083,17 +2076,10 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                {
                    if (files == null || folders == null)
                        await RefreshAsync();
-                   var res = new INetdiskItem[files.Count + folders.Count];
-                   int i = 0;
-                   foreach(var it in folders)
-                   {
-                       res[i++] = it;
-                   }
-                   foreach (var it in files)
-                   {
-                       res[i++] = it;
-                   }
-                   return Array.AsReadOnly(res);
+                   var res = new List<INetdiskItem>();
+                   res.AddRange(folders);
+                   res.AddRange(files);
+                   return res.AsReadOnly();
 
                }));
         }
@@ -2109,6 +2095,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                 {
                     if (await this.xpanShareClass.SaveFilesAsync(new ulong[] { this.Id }, desFolder.Path, Auth.AccessToken) != 0)
                         throw new Exception("fail");
+                    var q = desFolder.RefreshAsync();
                 }));
         }
     }
@@ -2138,12 +2125,12 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
         /// <summary>
         /// Gets the fs_id of the file.
         /// </summary>
-        public ulong Id { get; }
+        public ulong Id => fs_id;
 
         /// <summary>
         /// Get type of file.
         /// </summary>
-        public string FileType { get { if (Name != null && Name.Contains('.') && !Name.EndsWith('.')) return Name.Substring(Name.LastIndexOf('.') + 1); return null; } }
+        public string FileType { get { if (Name != null && Name.Contains('.') && !Name.EndsWith('.')) return Name.Substring(Name.LastIndexOf('.')); return null; } }
         /// <summary>
         /// get md5 of file
         /// </summary>
@@ -2156,7 +2143,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
         /// <summary>
         /// Get size of file.
         /// </summary>
-        public ulong Size { get; }
+        public ulong Size { get; internal set; }
 
         internal NetdiskBasic.Thumbs thumbs { get; set; }
         /// <summary>
@@ -2267,6 +2254,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                 {
                     if (await this.xpanShareClass.SaveFilesAsync(new ulong[] { this.Id }, desFolder.Path, Auth.AccessToken) != 0)
                         throw new Exception("fail");
+                    var q = desFolder.RefreshAsync();
                 }));
         }
 
