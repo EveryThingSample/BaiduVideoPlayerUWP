@@ -480,22 +480,23 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                              {
                                  case 0:
                                      {
-                                         var list = new List<INetdiskItem>();
+                                         var array = new INetdiskItem[res.list.Count];
+                                         int i = 0;
                                          foreach(var it in res.list)
                                          {
                                              if (it.isdir > 0)
                                              {
-                                                 list.Add(new NetdiskFolder(this.Auth, null)
+                                                 array[i] = new NetdiskFolder(this.Auth, null)
                                                  {
                                                      Name = it.server_filename,
                                                      path = it.path,
                                                      Id = it.fs_id,
                                                      DateModified = new DateTimeOffset(EveryThingSampleTools.UWP.Tools.TimeTool.ConvertToDateTime(it.server_mtime)),
-                                                 });
+                                                 };
                                              }
                                              else
                                              {
-                                                 list.Add(new NetdiskFile(this.Auth, null)
+                                                 array[i] = new NetdiskFile(this.Auth, null)
                                                  {
                                                      Name = it.server_filename,
                                                      path = it.path,
@@ -505,11 +506,12 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                                                      thumbs = it.thumbs,
                                                      Category = NetdiskFolder.GetCategory(it.category, it.server_filename),
                                                      DateModified = new DateTimeOffset(EveryThingSampleTools.UWP.Tools.TimeTool.ConvertToDateTime(it.server_mtime)),
-                                                 });
+                                                 };
                                              }
+                                             i++;
                                          }
                                          
-                                         return list.AsReadOnly();
+                                         return array;
                                      }
                                  case -6:
                                      throw new InvalidAuthException(-6, res.error_msg);
@@ -618,26 +620,32 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
     /// <summary>
     /// 
     /// </summary>
-    public sealed class NetdiskFile : INetdiskFile, INetdiskItem, INetdiskItem2
+    public abstract class NetdiskItem: INetdiskItem
     {
-        private OAuth Auth { get; }
-        internal NetdiskBasic.Thumbs thumbs { get; set; }
+        internal OAuth Auth { get; }
         internal NetdiskFolder parent;
-
-        internal NetdiskFile(OAuth Auth, NetdiskFolder parent)
+        internal NetdiskItem(OAuth Auth, NetdiskFolder parent)
         {
             this.Auth = Auth;
             this.parent = parent;
         }
 
-
         /// <summary>
-        /// get the name
+        /// Gets the date and time when the current item was created.
+        /// </summary>
+        public DateTimeOffset DateModified { get; internal set; }
+        /// <summary>
+        /// Gets the name of the item including the file name extension if there is one.
         /// </summary>
         public string Name { get; internal set; }
+
+        /// <summary>
+        /// Gets the fs_id of the file.
+        /// </summary>
+        public ulong Id { get; internal set; }
         internal string path;
         /// <summary>
-        /// get the path
+        /// Gets the full path of the file.
         /// </summary>
         public string Path
         {
@@ -650,133 +658,9 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
             }
         }
         /// <summary>
-        /// get the fs_id
+        /// Creates a copy of the file in the specified folder.
         /// </summary>
-        public ulong Id { get; internal set; }
-        /// <summary>
-        /// Get size of file.
-        /// </summary>
-        public ulong Size { get; internal set; }
-        /// <summary>
-        /// get the file Type
-        /// </summary>
-        public string FileType { get { if (Name != null && Name.Contains('.') && !Name.EndsWith('.')) return Name.Substring(Name.LastIndexOf('.')); return null; } }
-        /// <summary>
-        /// get the modified date
-        /// </summary>
-        public DateTimeOffset DateModified { get; internal set; }
-        /// <summary>
-        /// get the md5 of file.
-        /// </summary>
-        public string Md5 { get; internal set; }
-
-        /// <summary>
-        /// Get the category of file.
-        /// </summary>
-        public Category Category { get; internal set; }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public IAsyncOperation<INetdiskFolder> GetParentAsync()
-        {
-            return AsyncInfo.Run(_ =>
-               Task.Run<INetdiskFolder>(() =>
-               {
-                   if (parent == null)
-                   {
-                       string folderPath = "/", folderName = "All";
-                       var index = Path.LastIndexOf('/');
-                       if (index > 0)
-                       {
-                           folderPath = Path.Substring(0, index);
-                           folderName = folderPath.Substring(folderPath.LastIndexOf('/'));
-
-                       }
-                       return new NetdiskFolder(Auth, null) { Name = folderName, path = folderPath };
-                   }
-                   else
-                       return parent;
-               }
-            ));
-        }
-        /// <summary>
-        /// Rename
-        /// </summary>
-        /// <param name="desiredName"></param>
-        /// <returns></returns>
-        public IAsyncAction RenameAsync(string desiredName)
-        {
-            return AsyncInfo.Run(_ =>
-                     Task.Run(() =>
-                     {
-                         if (NetdiskFolder.CheckNameIsOk(desiredName) == false)
-                             throw new ArgumentException("desiredName Contain illegal character");
-                         var res = NetdiskBasic.FileManager.RenameFile(new List<NetdiskBasic.FileManager.FileManagerRequest.FilelistItem>()
-                         { new NetdiskBasic.FileManager.FileManagerRequest.FilelistItem()
-                         { newname = desiredName,
-                              path = this.Path
-                         } }, 0, Auth.AccessToken);
-                         if (res != null)
-                         {
-                             switch (res.errno)
-                             {
-                                 case 0:
-                                     {
-                                         var d = this.FileType;
-                                         this.Name = desiredName;
-                                         //this.DateModified = new DateTimeOffset(DateTime.Now);
-                                         if (d != FileType)
-                                             this.Category = NetdiskFolder.GetCategory(0, Name);
-                                         return;
-                                     }
-                                 case -6:
-                                     throw new InvalidAuthException(-6, res.error_msg);
-                                 default:
-                                     throw new Exception("Fail");
-                             }
-                         }
-                         else
-                             throw new Exception("Net Error");
-                         throw new Exception("Fail");
-                     }
-                     ));
-        }
-
-        /// <summary>
-        /// Delete
-        /// </summary>
-        /// <returns></returns>
-        public IAsyncAction DeleteAsync()
-        {
-            return AsyncInfo.Run(_ =>
-                       Task.Run(() =>
-                       {
-                           var res = NetdiskBasic.FileManager.DeleteFile(new List<string>() { this.Path }, Auth.AccessToken);
-                           if (res != null)
-                           {
-                               switch (res.errno)
-                               {
-                                   case 0:
-                                       {
-                                           this.parent?.DeleteItem(this);
-                                           return;
-                                       }
-                                   case -6:
-                                       throw new InvalidAuthException(-6, res.error_msg);
-                                   default:
-                                       throw new Exception("Fail");
-                               }
-                           }
-                           else
-                               throw new Exception("Net Error");
-
-                       }));
-        }
-        /// <summary>
-        /// Copy
-        /// </summary>
-        /// <param name="destinationFolder"></param>
+        /// <param name="destinationFolder">The destination folder where the copy of the file is created.</param>
         /// <returns></returns>
         public IAsyncAction CopyAsync(INetdiskFolder destinationFolder)
         {
@@ -808,36 +692,9 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                 ));
         }
         /// <summary>
-        /// 
+        /// Moves the current file to the specified folder。
         /// </summary>
-        /// <returns></returns>
-        public IAsyncOperation<NetdiskItemShareInfo> ShareAsync()
-        {
-            return AsyncInfo.Run(_ =>
-                     Task.Run<NetdiskItemShareInfo>(() =>
-                     {
-                         var res = DupanShareOpenFileInfo.GetShareResultUrlRoot(new List<ulong>() { Id }, Auth.AccessToken);
-                         if (res != null)
-                         {
-                             switch (res.errno)
-                             {
-                                 case 0:
-                                     return new NetdiskItemShareInfo() { Link = res.link, Password = res.password };
-                                 case -6:
-                                     throw new InvalidAuthException(-6, res.error_msg);
-                                 default:
-                                     throw new Exception("Fail");
-                             }
-                         }
-                         else
-                             throw new Exception("Net Error");
-                     }
-                     ));
-        }
-        /// <summary>
-        /// Move
-        /// </summary>
-        /// <param name="destinationFolder"></param>
+        /// <param name="destinationFolder">The destination folder where the file is moved.</param>
         /// <returns></returns>
         public IAsyncAction MoveAsync(INetdiskFolder destinationFolder)
         {
@@ -868,13 +725,177 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                 }
                 ));
         }
+        private static bool CheckNameIsOk(string name)
+        {
+            var bol = string.IsNullOrEmpty(name) || name.Contains('/')
+                || name.Contains('\\') || name.Contains('|') || name.Contains(':')
+                || name.Contains('*') || name.Contains('?') || name.Contains('"') || name.Contains('<')
+                || name.Contains('>');
+            return !bol;
+        }
+        /// <summary>
+        /// Renames the file according to the desired name.
+        /// </summary>
+        /// <param name="desiredName">The desired name of the file after it is renamed.</param>
+        public IAsyncAction RenameAsync(string desiredName)
+        {
+            return AsyncInfo.Run(_ =>
+                     Task.Run(() =>
+                     {
+                         if (CheckNameIsOk(desiredName) == false)
+                             throw new ArgumentException("desiredName Contain illegal character");
+                         var res = NetdiskBasic.FileManager.RenameFile(new List<NetdiskBasic.FileManager.FileManagerRequest.FilelistItem>()
+                         { new NetdiskBasic.FileManager.FileManagerRequest.FilelistItem()
+                         { newname = desiredName,
+                              path = this.Path
+                         } }, 0, Auth.AccessToken);
+                         if (res != null)
+                         {
+                             switch (res.errno)
+                             {
+                                 case 0:
+                                     {
+                                         this.Name = desiredName;
+                                         this.path = Path.Substring(0, Path.LastIndexOf('/') + 1) + desiredName;
+                                         return;
+                                     }
+                                 case -6:
+                                     throw new InvalidAuthException(-6, res.error_msg);
+                                 default:
+                                     throw new Exception("Fail");
+                             }
+
+                         }
+                         else
+                             throw new Exception("Net Error");
+                         throw new Exception("Fail");
+                     }
+                     ));
+        }
+        /// <summary>
+        /// Deletes the current file.
+        /// </summary>
+        /// <returns></returns>
+        public IAsyncAction DeleteAsync()
+        {
+            return AsyncInfo.Run(_ =>
+                       Task.Run(() =>
+                       {
+                           var res = NetdiskBasic.FileManager.DeleteFile(new List<string>() { this.Path }, Auth.AccessToken);
+                           if (res != null)
+                           {
+                               switch (res.errno)
+                               {
+                                   case 0:
+                                       {
+                                           this.parent?.DeleteItem(this);
+                                           return;
+                                       }
+                                   case -6:
+                                       throw new InvalidAuthException(-6, res.error_msg);
+                                   default:
+                                       throw new Exception("Fail");
+                               }
+                           }
+                           else
+                               throw new Exception("Net Error");
+
+                       }));
+        }
+        /// <summary>
+        /// Determines whether the current INetdiskItem matches the specified NetdiskItemTypes
+        /// </summary>
+        /// <param name="type">The value to match against.</param>
+        /// <returns></returns>
+        public abstract bool IsOfType(NetdiskItemTypes type);
+        /// <summary>
+        /// Share the item.
+        /// </summary>
+        /// <returns></returns>
+        public IAsyncOperation<NetdiskItemShareInfo> ShareAsync()
+        {
+            return AsyncInfo.Run(_ =>
+                     Task.Run<NetdiskItemShareInfo>(() =>
+                     {
+                         var res = DupanShareOpenFileInfo.GetShareResultUrlRoot(new List<ulong>() { Id }, Auth.AccessToken);
+                         if (res != null)
+                         {
+                             switch (res.errno)
+                             {
+                                 case 0:
+                                     return new NetdiskItemShareInfo() { Link = res.link, Password = res.password };
+                                 case -6:
+                                     throw new InvalidAuthException(-6, res.error_msg);
+                                 default:
+                                     throw new Exception("Fail");
+                             }
+                         }
+                         else
+                             throw new Exception("Net Error");
+                     }
+                     ));
+        }
+        
+    }
+    /// <summary>
+    /// 
+    /// </summary>
+    public sealed class NetdiskFile : NetdiskItem, INetdiskFile, INetdiskItem, INetdiskItem2
+    {
+        internal NetdiskBasic.Thumbs thumbs { get; set; }
+
+        internal NetdiskFile(OAuth Auth, NetdiskFolder parent):base(Auth, parent)
+        {
+        }
+        /// <summary>
+        /// Get size of file.
+        /// </summary>
+        public ulong Size { get; internal set; }
+        /// <summary>
+        /// get the file Type
+        /// </summary>
+        public string FileType { get { if (Name != null && Name.Contains('.') && !Name.EndsWith('.')) return Name.Substring(Name.LastIndexOf('.')); return null; } }
+        /// <summary>
+        /// get the md5 of file.
+        /// </summary>
+        public string Md5 { get; internal set; }
 
         /// <summary>
-        /// is type
+        /// Get the category of file.
+        /// </summary>
+        public Category Category { get; internal set; }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public IAsyncOperation<INetdiskFolder> GetParentAsync()
+        {
+            return AsyncInfo.Run(_ =>
+               Task.Run<INetdiskFolder>(() =>
+               {
+                   if (parent == null)
+                   {
+                       string folderPath = "/", folderName = "All";
+                       var index = Path.LastIndexOf('/');
+                       if (index > 0)
+                       {
+                           folderPath = Path.Substring(0, index);
+                           folderName = folderPath.Substring(folderPath.LastIndexOf('/') + 1);
+                       }
+                       return new NetdiskFolder(Auth, null) { Name = folderName, path = folderPath };
+                   }
+                   else
+                       return parent;
+               }
+            ));
+        }
+       
+        /// <summary>
+        /// 
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
-        public bool IsOfType(NetdiskItemTypes type) => type == NetdiskItemTypes.File;
+        public override bool IsOfType(NetdiskItemTypes type) => type == NetdiskItemTypes.File;
         private Uri downloadUri;
         /// <summary>
         /// 
@@ -1022,43 +1043,12 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
     /// <summary>
     /// 
     /// </summary>
-    public sealed class NetdiskFolder : INetdiskFolder, INetdiskItem, INetdiskItem2
+    public sealed class NetdiskFolder : NetdiskItem,INetdiskFolder, INetdiskItem, INetdiskItem2
     {
         
-        internal NetdiskFolder parent;
-        internal NetdiskFolder(OAuth Auth, NetdiskFolder parent)
+        internal NetdiskFolder(OAuth Auth, NetdiskFolder parent):base(Auth, parent)
         {
-            this.Auth = Auth;
-            this.parent = parent;
         }
-        private OAuth Auth { get; }
-        /// <summary>
-        /// Get name
-        /// </summary>
-        public string Name { get; internal set; }
-        internal string path;
-        /// <summary>
-        /// get path
-        /// </summary>
-        public string Path
-        {
-            get
-            {
-                if (parent != null)
-                    return parent.Path + (parent.Path.EndsWith('/') ? null : "/") + Name;
-                else
-                    return path;
-            }
-        }
-        /// <summary>
-        /// fs_id
-        /// </summary>
-        public ulong Id { get; internal set; }
-        /// <summary>
-        /// get modified Date
-        /// </summary>
-        public DateTimeOffset DateModified { get; internal set; }
-
         private List<NetdiskFile> files;
         private List<NetdiskFolder> folders;
         /// <summary>
@@ -1077,7 +1067,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                        if (index > 0)
                        {
                            folderPath = Path.Substring(0, index);
-                           folderName = folderPath.Substring(folderPath.LastIndexOf('/'));
+                           folderName = folderPath.Substring(folderPath.LastIndexOf('/') + 1);
 
                        }
                        return new NetdiskFolder(Auth, null) { Name = folderName, path = folderPath };
@@ -1329,172 +1319,6 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
             return new NetdiskFolder(Auth, this);
         }
 
-        /// <summary>
-        /// Rename
-        /// </summary>
-        /// <param name="desiredName"></param>
-        /// <returns></returns>
-        public IAsyncAction RenameAsync(string desiredName)
-        {
-            return AsyncInfo.Run(_ =>
-                     Task.Run(() =>
-                     {
-                         if (CheckNameIsOk(desiredName) == false)
-                             throw new ArgumentException("desiredName Contain illegal character");
-                         var res = NetdiskBasic.FileManager.RenameFile(new List<NetdiskBasic.FileManager.FileManagerRequest.FilelistItem>()
-                         { new NetdiskBasic.FileManager.FileManagerRequest.FilelistItem()
-                         { newname = desiredName,
-                              path = this.Path
-                         } }, 0, Auth.AccessToken);
-                         if (res != null)
-                         {
-                             switch (res.errno)
-                             {
-                                 case 0:
-                                     {
-                                         this.Name = desiredName;
-                                         this.path = Path.Substring(0, Path.LastIndexOf('/') + 1) + desiredName;
-                                         return;
-                                     }
-                                 case -6:
-                                     throw new InvalidAuthException(-6, res.error_msg);
-                                 default:
-                                     throw new Exception("Fail");
-                             }
-                          
-                         }
-                         else
-                             throw new Exception("Net Error");
-                         throw new Exception("Fail");
-                     }
-                     ));
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public IAsyncOperation<NetdiskItemShareInfo> ShareAsync()
-        {
-            return AsyncInfo.Run(_ =>
-                     Task.Run<NetdiskItemShareInfo>(() =>
-                     {
-                         var res = DupanShareOpenFileInfo.GetShareResultUrlRoot(new List<ulong>() { Id }, Auth.AccessToken);
-                         if (res != null)
-                         {
-                             switch (res.errno)
-                             {
-                                 case 0:
-                                     return new NetdiskItemShareInfo() { Link = res.link, Password = res.password };
-                                 case -6:
-                                     throw new InvalidAuthException(-6, res.error_msg);
-                                 default:
-                                     throw new Exception("Fail");
-                             }
-                             
-                                 
-                         }
-                         else
-                             throw new Exception("Net Error");
-                     }
-                     ));
-        }
-        /// <summary>
-        /// Delete
-        /// </summary>
-        /// <returns></returns>
-        public IAsyncAction DeleteAsync()
-        {
-            return AsyncInfo.Run(_ =>
-                       Task.Run(() =>
-                       {
-                           var res = NetdiskBasic.FileManager.DeleteFile(new List<string>() { this.Path }, Auth.AccessToken);
-                           if (res != null)
-                           {
-
-                               switch (res.errno)
-                               {
-                                   case 0:
-                                       this.parent?.DeleteItem(this);
-                                       return;
-                                   case -6:
-                                       throw new InvalidAuthException(-6, res.error_msg);
-                                   default:
-                                       throw new Exception("Fail");
-                               }
-                           }
-                           else
-                               throw new Exception("Net Error");
-
-                       }));
-        }
-        /// <summary>
-        /// Copy
-        /// </summary>
-        /// <param name="destinationFolder"></param>
-        /// <returns></returns>
-        public IAsyncAction CopyAsync(INetdiskFolder destinationFolder)
-        {
-            return AsyncInfo.Run(_ =>
-                Task.Run(() =>
-                {
-                    var lists = new List<NetdiskBasic.FileManager.FileManagerRequest.FilelistItem>()
-                    { new NetdiskBasic.FileManager.FileManagerRequest.FilelistItem(){ dest=destinationFolder.Path,newname=Name,path=Path } };
-
-                    var res = NetdiskBasic.FileManager.CopyFile(lists, 0, Auth.AccessToken);
-                    if (res != null)
-                    {
-                        switch (res.errno)
-                        {
-                            case 0:
-                                {
-                                    (destinationFolder as NetdiskFolder).RefreshAsync();
-                                }
-                                return;
-                            case -6:
-                                throw new InvalidAuthException(-6, res.error_msg);
-                            default:
-                                throw new Exception("Fail");
-                        }
-                    }
-                    else
-                        throw new Exception("Net Error");
-                }
-                ));
-        }
-        /// <summary>
-        /// Move
-        /// </summary>
-        /// <param name="destinationFolder"></param>
-        /// <returns></returns>
-        public IAsyncAction MoveAsync(INetdiskFolder destinationFolder)
-        {
-            return AsyncInfo.Run(_ =>
-                Task.Run(() =>
-                {
-                    var lists = new List<NetdiskBasic.FileManager.FileManagerRequest.FilelistItem>()
-                    { new NetdiskBasic.FileManager.FileManagerRequest.FilelistItem(){ dest=destinationFolder.Path,newname=Name,path=Path } };
-
-                    var res = NetdiskBasic.FileManager.MoveFile(lists, 0, Auth.AccessToken);
-                    if (res != null)
-                    {
-                        switch (res.errno)
-                        {
-                            case 0:
-                                this.parent?.DeleteItem(this);
-                                this.path = destinationFolder.Path + "/" + Name;
-                                (destinationFolder as NetdiskFolder).AddItem(this);
-                                return;
-                            case -6:
-                                throw new InvalidAuthException(-6, res.error_msg);
-                            default:
-                                throw new Exception("Fail");
-                        }
-                    }
-                    else
-                        throw new Exception("Net Error");
-                }
-                ));
-        }
         internal void AddItem(INetdiskItem item)
         {
             if (item is NetdiskFile file)
@@ -1528,17 +1352,10 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
-        public bool IsOfType(NetdiskItemTypes type) => type == NetdiskItemTypes.Folder;
+        public override bool IsOfType(NetdiskItemTypes type) => type == NetdiskItemTypes.Folder;
 
 
-        internal static bool CheckNameIsOk(string name)
-        {
-            var bol = string.IsNullOrEmpty(name) || name.Contains('/')
-                || name.Contains('\\') || name.Contains('|') || name.Contains(':')
-                || name.Contains('*') || name.Contains('?') || name.Contains('"') || name.Contains('<')
-                || name.Contains('>');
-            return !bol;
-        }
+        
         internal static Category GetCategory(int category, string name)
         {
             if (category == 1)
@@ -2036,7 +1853,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                Task.Run<IReadOnlyList<INetdiskFile>>(async () =>
                {
                    await GetItemsAsync();
-                   var res = new INetdiskFile[files.Count + folders.Count];
+                   var res = new INetdiskFile[files.Count];
                    int i = 0;
                    foreach (var it in files)
                    {
@@ -2055,7 +1872,7 @@ namespace EveryThingSampleTools.UWP.NetdiskOpenAPI
                   Task.Run<IReadOnlyList<INetdiskFolder>>(async () =>
                   {
                       await GetItemsAsync();
-                      var res = new INetdiskFolder[files.Count + folders.Count];
+                      var res = new INetdiskFolder[folders.Count];
                       int i = 0;
                       foreach (var it in folders)
                       {
